@@ -14,30 +14,48 @@ import (
 const COLORS = "rgbcmykw"
 
 var (
-	match_cache  = map[string]bool{}
+    match_cache = map[string]bool{}
 	prefix_cache = map[string]string{}
-	match_mutex  = new(sync.Mutex)
-	prefix_mutex = new(sync.Mutex)
+	mutex  = new(sync.Mutex)
+    globs        []string
 )
+
+func init() {
+    debug := os.Getenv("DEBUG")
+    if debug == "" {
+        globs = []string{}
+    } else {
+        globs = strings.Split(debug, " ")
+    }
+}
 
 func match(namespace string) (match bool) {
 	var ok bool
 
-    match_mutex.Lock()
-	defer match_mutex.Unlock()
+    match = false
 
-	if match, ok = match_cache[namespace]; !ok {
-		selectors := strings.Split(os.Getenv("DEBUG"), " ")
-		for selector := range selectors {
-			if ok, _ = filepath.Match(selectors[selector], namespace); ok {
-				match = true
-                match_cache[namespace] = match
-				return
-			}
-		}
-		match = false
-		match_cache[namespace] = match
+    // This might be a pointless opimization, but I'm hoping it helps with
+    // multithreaded applications because we can skip the mutex if there
+    // is no DEBUG env.
+    if len(globs) == 0 {
+        return
+    }
+
+    mutex.Lock()
+	defer mutex.Unlock()
+	if match, ok = match_cache[namespace]; ok {
+        return
 	}
+
+    for i := range globs {
+        if ok, _ = filepath.Match(globs[i], namespace); ok {
+            match = true
+            match_cache[namespace] = match
+            prefix_cache[namespace] = fmt.Sprintf("@%s%s@| ", getcolor(namespace), namespace)
+            return
+        }
+    }
+    match_cache[namespace] = match
 	return
 }
 
@@ -57,14 +75,13 @@ func printns(namespace string) {
 	var ok bool
 	var prefix string
 
-	prefix_mutex.Lock()
-	if prefix, ok = prefix_cache[namespace]; !ok {
-		prefix = fmt.Sprintf("@%s%s@| ", getcolor(namespace), namespace)
-		prefix_cache[namespace] = prefix
+	mutex.Lock()
+    prefix, ok = prefix_cache[namespace]
+    mutex.Unlock()
+    if ok {
+        color.Print(prefix)
 	}
-	prefix_mutex.Unlock()
-
-	color.Print(prefix)
+    return
 }
 
 func Log(namespace, msg string, args ...interface{}) {
