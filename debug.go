@@ -14,48 +14,48 @@ import (
 const COLORS = "rgbcmykw"
 
 var (
-    match_cache = map[string]bool{}
-	prefix_cache = map[string]string{}
-	mutex  = new(sync.Mutex)
-    globs        []string
+	matchCache  = map[string]bool{}
+	prefixCache = map[string]string{}
+	mutex       = new(sync.Mutex)
+	globs       []string
 )
 
 func init() {
-    debug := os.Getenv("DEBUG")
-    if debug == "" {
-        globs = []string{}
-    } else {
-        globs = strings.Split(debug, " ")
-    }
+	debug := os.Getenv("DEBUG")
+	if debug == "" {
+		globs = []string{}
+	} else {
+		globs = strings.Split(debug, " ")
+	}
 }
 
 func match(namespace string) (match bool) {
 	var ok bool
 
-    match = false
+	match = false
 
-    // This might be a pointless opimization, but I'm hoping it helps with
-    // multithreaded applications because we can skip the mutex if there
-    // is no DEBUG env.
-    if len(globs) == 0 {
-        return
-    }
-
-    mutex.Lock()
-	defer mutex.Unlock()
-	if match, ok = match_cache[namespace]; ok {
-        return
+	// This might be a pointless opimization, but I'm hoping it helps with
+	// multithreaded applications because we can skip the mutex if there
+	// is no DEBUG env.
+	if len(globs) == 0 {
+		return
 	}
 
-    for i := range globs {
-        if ok, _ = filepath.Match(globs[i], namespace); ok {
-            match = true
-            match_cache[namespace] = match
-            prefix_cache[namespace] = fmt.Sprintf("@%s%s@| ", getcolor(namespace), namespace)
-            return
-        }
-    }
-    match_cache[namespace] = match
+	mutex.Lock()
+	defer mutex.Unlock()
+	if match, ok = matchCache[namespace]; ok {
+		return
+	}
+
+	for i := range globs {
+		if ok, _ = filepath.Match(globs[i], namespace); ok {
+			match = true
+			matchCache[namespace] = match
+			prefixCache[namespace] = fmt.Sprintf("@%s%s@| ", getcolor(namespace), namespace)
+			return
+		}
+	}
+	matchCache[namespace] = match
 	return
 }
 
@@ -76,12 +76,12 @@ func printns(namespace string) {
 	var prefix string
 
 	mutex.Lock()
-    prefix, ok = prefix_cache[namespace]
-    mutex.Unlock()
-    if ok {
-        color.Print(prefix)
+	prefix, ok = prefixCache[namespace]
+	mutex.Unlock()
+	if ok {
+		color.Print(prefix)
 	}
-    return
+	return
 }
 
 func Log(namespace, msg string, args ...interface{}) {
