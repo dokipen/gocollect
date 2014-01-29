@@ -8,6 +8,7 @@ import (
     "github.com/wsxiaoys/terminal/color"
     "crypto/md5"
     "io"
+    "sync"
 )
 
 const COLORS = "rgbcmykw"
@@ -15,6 +16,8 @@ const COLORS = "rgbcmykw"
 var (
     match_cache  = map[string]bool{}
     prefix_cache = map[string]string{}
+    match_mutex = new(sync.Mutex)
+    prefix_mutex = new(sync.Mutex)
 )
 
 func match(namespace string) (match bool) {
@@ -24,6 +27,8 @@ func match(namespace string) (match bool) {
         for selector := range selectors {
             if ok, _ = filepath.Match(selectors[selector], namespace); ok  {
                 match = true
+                match_mutex.Lock()
+                defer match_mutex.Unlock()
                 match_cache[namespace] = match
                 return
             }
@@ -52,6 +57,8 @@ func printns(namespace string) {
 
     if prefix, ok = prefix_cache[namespace]; !ok {
         prefix = fmt.Sprintf("@%s%s@| ", getcolor(namespace), namespace)
+        prefix_mutex.Lock()
+        defer prefix_mutex.Unlock()
         prefix_cache[namespace] = prefix
     }
 
