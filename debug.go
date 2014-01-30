@@ -47,8 +47,8 @@ func match(namespace string) (match bool) {
 		return
 	}
 
-	for i := range globs {
-		if ok, _ = filepath.Match(globs[i], namespace); ok {
+	for _, glob := range globs {
+		if ok, _ = filepath.Match(glob, namespace); ok {
 			match = true
 			matchCache[namespace] = match
 			prefixCache[namespace] = fmt.Sprintf("@%s%s@| ", getcolor(namespace), namespace)
@@ -64,8 +64,8 @@ func getcolor(namespace string) string {
 	io.WriteString(h, namespace)
 	var sum int
 	sumbytes := h.Sum(nil)
-	for i := range sumbytes {
-		sum += int(sumbytes[i])
+	for _, i := range sumbytes {
+		sum += int(i)
 	}
 	return fmt.Sprintf("%c", COLORS[sum%len(COLORS)])
 
@@ -88,6 +88,7 @@ func Log(namespace, msg string, args ...interface{}) {
 	if match(namespace) {
 		printns(namespace)
 		fmt.Printf(msg, args...)
+        fmt.Println("")
 	}
 }
 
