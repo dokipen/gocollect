@@ -21,7 +21,7 @@ var (
 )
 
 func main() {
-    log("Hello debug!\n")
+    log("Hello debug!")
 }
 ```
 
