@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+    "runtime"
 )
 
 const COLORS = "rgbcmykw"
@@ -51,7 +52,7 @@ func match(namespace string) (match bool) {
 		if ok, _ = filepath.Match(glob, namespace); ok {
 			match = true
 			matchCache[namespace] = match
-			prefixCache[namespace] = fmt.Sprintf("@%s%s@| ", getcolor(namespace), namespace)
+			prefixCache[namespace] = fmt.Sprintf("  @%s%s@| ", getcolor(namespace), namespace)
 			return
 		}
 	}
@@ -87,6 +88,10 @@ func printns(namespace string) {
 func Log(namespace, msg string, args ...interface{}) {
 	if match(namespace) {
 		printns(namespace)
+        _, path, line, _ := runtime.Caller(2)
+        filename := filepath.Base(path)
+        loc := fmt.Sprintf("@%c%s:%d@| ", 'b', filename, line)
+        color.Print(loc)
 		fmt.Printf(msg, args...)
         fmt.Println("")
 	}
