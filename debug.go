@@ -1,10 +1,9 @@
-package debug
-
 /*
 github.com/dokipen/debug is a port of visionmedia/debug nodejs lib. It is meant to be extremely quick to get going with. All configuration is done on the commandline with the DEBUG environmental variable.
 
 The current differences with nodejs's debug are that timing is not supported and we include the debug callers file and line number in the output.
 */
+package debug
 
 import (
 	"crypto/md5"
