@@ -1,26 +1,37 @@
 package debug
 
+/*
+github.com/dokipen/debug is a port of visionmedia/debug nodejs lib. It is meant to be extremely quick to get going with. All configuration is done on the commandline with the DEBUG environmental variable.
+
+The current differences with nodejs's debug are that timing is not supported and we include the debug callers file and line number in the output.
+*/
+
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/wsxiaoys/terminal/color"
+	colorfmt "github.com/wsxiaoys/terminal/color"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
-    "runtime"
 )
 
+// Possible color values.
 const COLORS = "rgbcmykw"
 
 var (
 	matchCache  = map[string]bool{}
 	prefixCache = map[string]string{}
+	colorCache  = map[string]string{}
 	mutex       = new(sync.Mutex)
 	globs       []string
 )
 
+/*
+init prepares the environmental DEBUG variable.
+*/
 func init() {
 	debug := os.Getenv("DEBUG")
 	if debug == "" {
@@ -30,6 +41,10 @@ func init() {
 	}
 }
 
+/*
+match checks if the namespace is enabled for debug logging. It also seeds the
+cache for the namespace to speed things up.
+*/
 func match(namespace string) (match bool) {
 	var ok bool
 
@@ -52,7 +67,8 @@ func match(namespace string) (match bool) {
 		if ok, _ = filepath.Match(glob, namespace); ok {
 			match = true
 			matchCache[namespace] = match
-			prefixCache[namespace] = fmt.Sprintf("  @%s%s@| ", getcolor(namespace), namespace)
+			colorCache[namespace] = getcolor(namespace)
+			prefixCache[namespace] = colorfmt.Sprint(colorize("@%s%s@|", colorCache[namespace], namespace))
 			return
 		}
 	}
@@ -60,6 +76,9 @@ func match(namespace string) (match bool) {
 	return
 }
 
+/*
+getcolor returns the color of the namespace.
+*/
 func getcolor(namespace string) string {
 	h := md5.New()
 	io.WriteString(h, namespace)
@@ -68,35 +87,85 @@ func getcolor(namespace string) string {
 	for _, i := range sumbytes {
 		sum += int(i)
 	}
-	return fmt.Sprintf("%c", COLORS[sum%len(COLORS)])
+	return string(COLORS[sum%len(COLORS)])
 
 }
 
-func printns(namespace string) {
+/*
+printNs prints the namespace and returns the namespaces color.
+*/
+func printNs(namespace string) (color string) {
 	var ok bool
 	var prefix string
 
 	mutex.Lock()
 	prefix, ok = prefixCache[namespace]
+	color = colorCache[namespace]
 	mutex.Unlock()
 	if ok {
-		color.Print(prefix)
+		fmt.Print(prefix)
 	}
 	return
 }
 
+/*
+colorize formats the string before sending it to color.
+*/
+func colorize(format string, args ...interface{}) string {
+	return fmt.Sprintf(format, args...)
+}
+
+/*
+printCaller prints the caller's filepath and line number.
+*/
+func printCaller(path string, line int, color string) {
+	filename := filepath.Base(path)
+	colorfmt.Print(colorize("@%s%s:%d@|", color, filename, line))
+}
+
+/*
+printMs prints how much time has elapsed since the last message was logged.
+TODO: please implement.
+*/
+func printMs(color string) {
+	colorfmt.Print(colorize("@%s+1ms", color))
+}
+
+/*
+printMsg prints the actual log message.
+*/
+func printMsg(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	colored := colorize("@w%s@|", msg)
+	colorfmt.Print(colored)
+}
+
+/*
+Log logs your message in a namespace.
+*/
 func Log(namespace, msg string, args ...interface{}) {
 	if match(namespace) {
-		printns(namespace)
-        _, path, line, _ := runtime.Caller(2)
-        filename := filepath.Base(path)
-        loc := fmt.Sprintf("@%c%s:%d@| ", 'b', filename, line)
-        color.Print(loc)
-		fmt.Printf(msg, args...)
-        fmt.Println("")
+		_, path, line, _ := runtime.Caller(2)
+
+		fmt.Print("  ")
+		color := printNs(namespace)
+
+		fmt.Print(" ")
+		printCaller(path, line, color)
+
+		fmt.Print(" ")
+		printMsg(msg, args...)
+
+		//fmt.Print(" ")
+		//printMs(color)
+
+		fmt.Println()
 	}
 }
 
+/*
+Logger returns a closure for namespacing Log.
+*/
 func Logger(namespace string) func(string, ...interface{}) {
 	return func(msg string, args ...interface{}) {
 		Log(namespace, msg, args...)
