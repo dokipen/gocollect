@@ -19,6 +19,9 @@ import (
 
 // Possible color values.
 const COLORS = "rgbcmykw"
+// Formatted in two stages. First (color, namespace, color) which is cached,
+// then (file, linenum, message, elapsetime) for the actual message.
+const FMT = "  @%s%s@| @!%%s:%%d@| @w%%s@| @%s+%%s@|\n"
 
 type message struct {
     from_file string
@@ -31,18 +34,16 @@ type message struct {
 type messageChan chan *message
 
 var (
-	matchCache  = map[string]bool{}
 	fmtCache    = map[string]string{}
-	colorCache  = map[string]string{}
 	globs       []string
     msgCh       = make(messageChan)
 )
 
 
 func (msg *message) log(elapsed time.Duration) {
-	if match(msg.namespace) {
+    if fmtstr := formatFor(msg.namespace); fmtstr != "" {
         payload := fmt.Sprintf(msg.message, msg.args...)
-        content := fmt.Sprintf(fmtCache[msg.namespace], msg.from_file, msg.from_line, payload, elapsed)
+        content := fmt.Sprintf(fmtstr, msg.from_file, msg.from_line, payload, elapsed)
         colorfmt.Print(content)
 	}
 }
@@ -74,39 +75,28 @@ func init() {
 match checks if the namespace is enabled for debug logging. It also seeds the
 cache for the namespace to speed things up.
 */
-func match(namespace string) (match bool) {
+func formatFor(namespace string) string {
 	var ok bool
 
-	match = false
-
-	// This might be a pointless opimization, but I'm hoping it helps with
-	// multithreaded applications because we can skip the mutex if there
-	// is no DEBUG env.
-	if len(globs) == 0 {
-		return
-	}
-
-	if match, ok = matchCache[namespace]; ok {
-		return
+    if match, ok := fmtCache[namespace]; ok {
+		return match
 	}
 
 	for _, glob := range globs {
 		if ok, _ = filepath.Match(glob, namespace); ok {
-			match = true
-			matchCache[namespace] = match
-            color := getcolor(namespace)
-            fmtCache[namespace] = fmt.Sprintf("  @%s%s@| @!%%s:%%d@| @w%%s@| @%s+%%s@|\n", color, namespace, color)
-			return
+            color := colorFor(namespace)
+            fmtCache[namespace] = fmt.Sprintf(FMT, color, namespace, color)
+			return fmtCache[namespace]
 		}
 	}
-	matchCache[namespace] = match
-	return
+    fmtCache[namespace] = ""
+	return fmtCache[namespace]
 }
 
 /*
 getcolor returns the color of the namespace.
 */
-func getcolor(namespace string) string {
+func colorFor(namespace string) string {
 	h := md5.New()
 	io.WriteString(h, namespace)
 	var sum int
@@ -118,6 +108,7 @@ func getcolor(namespace string) string {
 
 }
 
+// Public API
 /*
 Log sends the log message to the log worker to be written to stdout.
 */

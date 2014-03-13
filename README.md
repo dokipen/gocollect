@@ -27,5 +27,5 @@ func main() {
 
 ```bash
 $ DEBUG="main" go run myprog.go
-main Hello debug!
+main myprog.go:13 Hello debug! +1.32us
 ```
