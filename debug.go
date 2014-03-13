@@ -18,11 +18,11 @@ import (
 )
 
 // Possible color values.
-const COLORS = "rgbcmykw"
+const COLORS = "rgbcmy"
 
 // Formatted in two stages. First (color, namespace, color) which is cached,
 // then (file, linenum, message, elapsetime) for the actual message.
-const FMT = "  @%s%s@| @!%%s:%%d@| @w%%s@| @%s+%%s@|\n"
+const FMT = "  @%s%s@| @!%%s:%%d@| @{.w}%%s@| @{/%s}+%%s@|\n"
 
 type message struct {
 	from_file string
