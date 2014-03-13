@@ -1,9 +1,14 @@
+/*
+github.com/dokipen/debug is a port of visionmedia/debug nodejs lib. It is meant to be extremely quick to get going with. All configuration is done on the commandline with the DEBUG environmental variable.
+
+The current differences with nodejs's debug are that timing is not supported and we include the debug callers file and line number in the output.
+*/
 package debug
 
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/wsxiaoys/terminal/color"
+	colorfmt "github.com/wsxiaoys/terminal/color"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,16 +17,10 @@ import (
     "time"
 )
 
+// Possible color values.
 const COLORS = "rgbcmykw"
 
-var (
-	matchCache  = map[string]bool{}
-	fmtCache    = map[string]string{}
-	globs       []string
-    msgCh       = make(chan *Message)
-)
-
-type Message struct {
+type message struct {
     from_file string
     from_line int
 	namespace string
@@ -29,26 +28,38 @@ type Message struct {
 	args      []interface{}
 }
 
-type MessageChan chan *Message
+type messageChan chan *message
 
-func (msg *Message) Log(elapsed time.Duration) {
+var (
+	matchCache  = map[string]bool{}
+	fmtCache    = map[string]string{}
+	colorCache  = map[string]string{}
+	globs       []string
+    msgCh       = make(messageChan)
+)
+
+
+func (msg *message) log(elapsed time.Duration) {
 	if match(msg.namespace) {
-        message := fmt.Sprintf(msg.message, msg.args...)
-        content := fmt.Sprintf(fmtCache[msg.namespace], msg.from_file, msg.from_line, message, elapsed)
-        color.Print(content)
+        payload := fmt.Sprintf(msg.message, msg.args...)
+        content := fmt.Sprintf(fmtCache[msg.namespace], msg.from_file, msg.from_line, payload, elapsed)
+        colorfmt.Print(content)
 	}
 }
 
-func worker(ch MessageChan) {
+func worker(ch messageChan) {
     last := time.Now()
     for {
         msg := <-ch
         elapsed := time.Since(last)
         last = time.Now()
-        msg.Log(elapsed)
+        msg.log(elapsed)
     }
 }
 
+/*
+init prepares the environmental DEBUG variable.
+*/
 func init() {
 	debug := os.Getenv("DEBUG")
 	if debug == "" {
@@ -59,6 +70,10 @@ func init() {
     go worker(msgCh)
 }
 
+/*
+match checks if the namespace is enabled for debug logging. It also seeds the
+cache for the namespace to speed things up.
+*/
 func match(namespace string) (match bool) {
 	var ok bool
 
@@ -88,6 +103,9 @@ func match(namespace string) (match bool) {
 	return
 }
 
+/*
+getcolor returns the color of the namespace.
+*/
 func getcolor(namespace string) string {
 	h := md5.New()
 	io.WriteString(h, namespace)
@@ -96,13 +114,16 @@ func getcolor(namespace string) string {
 	for _, i := range sumbytes {
 		sum += int(i)
 	}
-	return fmt.Sprintf("%c", COLORS[sum%len(COLORS)])
+	return string(COLORS[sum%len(COLORS)])
 
 }
 
+/*
+Log sends the log message to the log worker to be written to stdout.
+*/
 func Log(namespace, msg string, args ...interface{}) {
     _, path, line, _ := runtime.Caller(2)
-    message := &Message{
+    message := &message{
         from_file: filepath.Base(path),
         from_line: line,
         namespace: namespace,
@@ -112,6 +133,9 @@ func Log(namespace, msg string, args ...interface{}) {
     msgCh <- message
 }
 
+/*
+Logger returns a closure for namespacing Log.
+*/
 func Logger(namespace string) func(string, ...interface{}) {
 	return func(msg string, args ...interface{}) {
 		Log(namespace, msg, args...)
