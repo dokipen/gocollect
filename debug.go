@@ -7,19 +7,47 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
-	"sync"
-    "runtime"
+    "time"
 )
 
 const COLORS = "rgbcmykw"
 
 var (
 	matchCache  = map[string]bool{}
-	prefixCache = map[string]string{}
-	mutex       = new(sync.Mutex)
+	fmtCache    = map[string]string{}
 	globs       []string
+    msgCh       = make(chan *Message)
 )
+
+type Message struct {
+    from_file string
+    from_line int
+	namespace string
+	message   string
+	args      []interface{}
+}
+
+type MessageChan chan *Message
+
+func (msg *Message) Log(elapsed time.Duration) {
+	if match(msg.namespace) {
+        message := fmt.Sprintf(msg.message, msg.args...)
+        content := fmt.Sprintf(fmtCache[msg.namespace], msg.from_file, msg.from_line, message, elapsed)
+        color.Print(content)
+	}
+}
+
+func worker(ch MessageChan) {
+    last := time.Now()
+    for {
+        msg := <-ch
+        elapsed := time.Since(last)
+        last = time.Now()
+        msg.Log(elapsed)
+    }
+}
 
 func init() {
 	debug := os.Getenv("DEBUG")
@@ -28,6 +56,7 @@ func init() {
 	} else {
 		globs = strings.Split(debug, " ")
 	}
+    go worker(msgCh)
 }
 
 func match(namespace string) (match bool) {
@@ -42,8 +71,6 @@ func match(namespace string) (match bool) {
 		return
 	}
 
-	mutex.Lock()
-	defer mutex.Unlock()
 	if match, ok = matchCache[namespace]; ok {
 		return
 	}
@@ -52,7 +79,8 @@ func match(namespace string) (match bool) {
 		if ok, _ = filepath.Match(glob, namespace); ok {
 			match = true
 			matchCache[namespace] = match
-			prefixCache[namespace] = fmt.Sprintf("  @%s%s@| ", getcolor(namespace), namespace)
+            color := getcolor(namespace)
+            fmtCache[namespace] = fmt.Sprintf("  @%s%s@| @!%%s:%%d@| @w%%s@| @%s+%%s@|\n", color, namespace, color)
 			return
 		}
 	}
@@ -72,29 +100,16 @@ func getcolor(namespace string) string {
 
 }
 
-func printns(namespace string) {
-	var ok bool
-	var prefix string
-
-	mutex.Lock()
-	prefix, ok = prefixCache[namespace]
-	mutex.Unlock()
-	if ok {
-		color.Print(prefix)
-	}
-	return
-}
-
 func Log(namespace, msg string, args ...interface{}) {
-	if match(namespace) {
-		printns(namespace)
-        _, path, line, _ := runtime.Caller(2)
-        filename := filepath.Base(path)
-        loc := fmt.Sprintf("@%c%s:%d@| ", 'b', filename, line)
-        color.Print(loc)
-		fmt.Printf(msg, args...)
-        fmt.Println("")
-	}
+    _, path, line, _ := runtime.Caller(2)
+    message := &Message{
+        from_file: filepath.Base(path),
+        from_line: line,
+        namespace: namespace,
+        message: msg,
+        args: args,
+    }
+    msgCh <- message
 }
 
 func Logger(namespace string) func(string, ...interface{}) {
