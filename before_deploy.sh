@@ -2,7 +2,7 @@ mkdir debroot
 cp debian/* debroot -r
 mkdir debroot/usr/bin -p
 cp gocollect debroot/usr/bin
-fmp \
+fpm \
   -s dir \
   -t deb \
   --force \
