@@ -9,5 +9,6 @@ fpm \
   --force \
   -C "debroot" \
   -a "amd64" \
+  -n "gocollect" \
   --version "0.0.1" \
   .
