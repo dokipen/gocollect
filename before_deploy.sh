@@ -1,7 +1,8 @@
 mkdir debroot
 cp debian/* debroot -r
 mkdir debroot/usr/bin -p
-cp gocollect debroot/usr/bin
+cp bin/gocollect debroot/usr/bin
+gem install fpm
 fpm \
   -s dir \
   -t deb \

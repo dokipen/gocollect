@@ -2,7 +2,7 @@ language: go
 go:
 - 1.5.1
 script:
-- go build -o gocollect
+- go install github.com/gocollect/bin/gocollect
 before_deploy:
 - ./before_deploy.sh
 deploy:
