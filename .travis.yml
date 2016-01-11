@@ -8,7 +8,7 @@ before_deploy:
 deploy:
   provider: packagecloud
   repository: "test"
-  username: "dokipen"
+  username: "doki_pen"
   dist: "ubuntu/precise"
   package_glob: "*.deb"
   skip_cleanup: true
