@@ -1,12 +1,9 @@
 package gocollect
 
 import (
-    "github.com/dokipen/debug"
-    "strconv"
     "net"
-    "http"
-    "json"
-    accesslog "github.com/mash/go-accesslog"
+    "net/http"
+    "github.com/dokipen/debug"
 )
 
 var (
@@ -15,21 +12,14 @@ var (
 
 func Bind(bind string) net.Listener {
     for {
-        l, err := net.Listen("tcp", fmt.Sprintf(":%d", BIND))
+        l, err := net.Listen("tcp", bind)
         if err != nil {
             log("Failed to bind, retrying: %+v", err)
         } else {
-            log("Listening on %s", BIND)
+            log("Listening on %s", bind)
             return l
         }
     }
-}
-
-type logger struct {
-}
-
-func (l logger) Log(l accesslog.LogRecord) {
-    log("%s - %s [%s] \"%s %s %s\" %d %d %s", l.Ip, l.Username, l.Time, l.Protocol, l.Method, l.Uri, l.Status, l.Size)
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
@@ -37,11 +27,10 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Credentials", "*")
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
-    w.Write("{\"error\":false}")
+    w.Write([]byte("{\"error\":false}"))
 }
 
-func Start(listener) {
-    l := logger{}
-    http.HandleFunc("/", accesslog.NewLoggingHandler(Handler, l))
-    http.Server(listener)
+func Start(listener net.Listener) {
+    http.HandleFunc("/", Handler)
+    http.Serve(listener, nil)
 }

@@ -4,9 +4,9 @@ import (
 	"os"
 )
 
-func getenvOr(name, defaultVal string) (val string) {
+func GetenvOr(name, defaultVal string) (val string) {
 	val = os.Getenv(name)
-	if val == "" {
+    if val == "" {
 		val = defaultVal
 	}
 	return
