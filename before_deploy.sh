@@ -1,7 +1,10 @@
-mkdir debroot
+#!/bin/bash
+set -e
+
+mkdir debroot -p
 cp debian/* debroot -r
 mkdir debroot/usr/bin -p
-cp bin/gocollect debroot/usr/bin
+cp "${GOPATH}/bin/gocollect" debroot/usr/bin
 gem install fpm
 fpm \
   -s dir \
