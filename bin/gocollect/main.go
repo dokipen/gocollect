@@ -7,7 +7,7 @@ import (
     "os/signal"
     "runtime"
     "syscall"
-    gocollect "../.."
+    "github.com/dokipen/gocollect"
 )
 
 var (
